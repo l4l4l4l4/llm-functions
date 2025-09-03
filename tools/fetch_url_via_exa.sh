@@ -10,16 +10,38 @@ set -e
 # @env EXA_API_KEY! The api key
 # @env LLM_OUTPUT=/dev/stdout The output path The output path
 
+
 main() {
-curl -fsS -X POST 'https://api.exa.ai/contents' \
-  -H "x-api-key: $EXA_API_KEY" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "urls": ["'"$argc_url"'"],
-    "text": true,
-    "livecrawlTimeout": 10000
-      }' | \
-    jq -r '.results[0].text' >> "$LLM_OUTPUT"
+    # Make the API request and capture the full response
+    response=$(curl -fsS -X POST 'https://api.exa.ai/contents' \
+      -H "x-api-key: $EXA_API_KEY" \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "urls": ["'"$argc_url"'"],
+        "text": true,
+        "livecrawlTimeout": 10000
+      }')
+
+    # Check if curl command succeeded
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to make API request" >> "$LLM_OUTPUT"
+        exit 0
+    fi
+
+    # Extract the status information
+    status=$(echo "$response" | jq -r '.statuses[0].status')
+    error_tag=$(echo "$response" | jq -r '.statuses[0].error.tag // "none"')
+    http_status=$(echo "$response" | jq -r '.statuses[0].error.httpStatusCode // 200')
+
+    # Check if the status indicates an error
+    if [ "$status" = "error" ] || [ "$http_status" != "200" ]; then
+        echo "Error: This page is unavailable" >> "$LLM_OUTPUT"
+        exit 0
+    fi
+
+    # If successful, extract and output the text
+    echo "$response" | jq -r '.results[0].text' >> "$LLM_OUTPUT"
 }
 
 eval "$(argc --argc-eval "$0" "$@")"
+
