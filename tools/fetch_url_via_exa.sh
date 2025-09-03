@@ -16,7 +16,8 @@ curl -fsS -X POST 'https://api.exa.ai/contents' \
   -H 'Content-Type: application/json' \
   -d '{
     "urls": ["'"$argc_url"'"],
-    "text": true
+    "text": true,
+    "livecrawlTimeout": 10000
       }' | \
     jq -r '.results[0].text' >> "$LLM_OUTPUT"
 }
